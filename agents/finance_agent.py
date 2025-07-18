@@ -4,6 +4,7 @@ from typing import Optional
 from agno.agent import Agent
 from agno.memory.v2.db.postgres import PostgresMemoryDb
 from agno.memory.v2.memory import Memory
+from agno.models.google import Gemini
 from agno.models.openai import OpenAIChat
 from agno.storage.agent.postgres import PostgresAgentStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
@@ -13,7 +14,7 @@ from db.session import db_url
 
 
 def get_finance_agent(
-    model_id: str = "gpt-4.1",
+    model_id: str = "gemini-2.0-flash",
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     debug_mode: bool = True,
@@ -23,7 +24,7 @@ def get_finance_agent(
         agent_id="finance_agent",
         user_id=user_id,
         session_id=session_id,
-        model=OpenAIChat(id=model_id),
+        model=Gemini("gemini-2.0-flash"),
         # Tools available to the agent
         tools=[
             DuckDuckGoTools(),
