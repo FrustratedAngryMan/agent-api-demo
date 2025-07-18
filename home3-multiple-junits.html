@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Workflow UI</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Highlight.js CSS for a dark theme -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <style>
+        /* Custom styles for Inter font and general body */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            min-height: 100vh; /* Full viewport height */
+            padding: 20px; /* Padding around the content */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+        }
+        /* Custom scrollbar for textareas */
+        textarea {
+            resize: vertical; /* Allow vertical resizing */
+            min-height: 100px; /* Minimum height for textareas */
+            max-height: 400px; /* Maximum height for textareas */
+            overflow-y: auto; /* Enable vertical scrollbar */
+        }
+        /* Styling for the loading spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3b82f6; /* Blue spinner */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Style for the code block container */
+        .code-file-block {
+            background-color: #282c34; /* Dark background for code */
+            border-radius: 0.5rem; /* Rounded corners */
+            overflow: auto; /* Ensure scrollbars for long code */
+            padding: 1rem;
+            min-height: 100px;
+            max-height: 400px;
+            box-sizing: border-box;
+            border: 1px solid #667eea; /* Purple border */
+            margin-bottom: 1rem; /* Space between multiple code blocks */
+        }
+
+        .code-file-block pre {
+            margin: 0; /* Remove default pre margin */
+            white-space: pre-wrap; /* Wrap long lines */
+            word-break: break-all; /* Break words if necessary */
+        }
+
+        .code-file-block code {
+            font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace; /* Monospace font for code */
+            font-size: 0.9rem;
+            color: #abb2bf; /* Light gray text color */
+        }
+        .file-name {
+            font-weight: bold;
+            color: #4a5568; /* Darker gray for file name */
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container bg-white p-8 rounded-xl shadow-lg w-full max-w-4xl space-y-8">
+        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8">
+            AI Agent Workflow
+        </h1>
+
+        <!-- User Story Input Section -->
+        <section class="space-y-4 p-6 bg-blue-50 rounded-lg shadow-inner">
+            <label for="userStoryInput" class="block text-lg font-semibold text-gray-800">
+                1. Enter Your User Story:
+            </label>
+            <textarea
+                id="userStoryInput"
+                class="w-full p-4 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 text-base"
+                placeholder="e.g., As a user, I want to be able to log in to the system using my username and password, so that I can access my personalized dashboard."
+            ></textarea>
+            <button
+                id="generateTestCasesBtn"
+                class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg text-lg font-bold hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+            >
+                Generate Test Cases
+            </button>
+        </section>
+
+        <!-- Test Cases Output Section -->
+        <section class="space-y-4 p-6 bg-green-50 rounded-lg shadow-inner">
+            <label for="testCasesOutput" class="block text-lg font-semibold text-gray-800">
+                2. Generated Test Cases (Review & Edit):
+            </label>
+            <textarea
+                id="testCasesOutput"
+                class="w-full p-4 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-700 text-base"
+                placeholder="Test cases will appear here. You can edit them before approval."
+            ></textarea>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button
+                    id="approveTestCasesBtn"
+                    class="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg text-lg font-bold hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
+                >
+                    Approve & Generate JUnits
+                </button>
+                <button
+                    id="resetBtn"
+                    class="flex-1 bg-red-500 text-white py-3 px-6 rounded-lg text-lg font-bold hover:bg-red-600 transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                >
+                    Reset Workflow
+                </button>
+            </div>
+        </section>
+
+        <!-- JUnit Output Section -->
+        <section class="space-y-4 p-6 bg-purple-50 rounded-lg shadow-inner">
+            <label class="block text-lg font-semibold text-gray-800">
+                3. Generated JUnit Tests:
+            </label>
+            <div id="junitOutputContainer" class="space-y-4">
+                <!-- JUnit code blocks will be dynamically added here -->
+            </div>
+        </section>
+
+        <!-- Loading Indicator -->
+        <div id="loadingSpinner" class="spinner mx-auto mt-8"></div>
+        <div id="messageBox" class="hidden p-4 rounded-lg text-center text-sm font-medium mt-4" role="alert"></div>
+
+    </div>
+
+    <!-- Highlight.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Optional: Load specific languages if you don't need all -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/java.min.js"></script>
+    <script>
+        // Get DOM elements
+        const userStoryInput = document.getElementById('userStoryInput');
+        const generateTestCasesBtn = document.getElementById('generateTestCasesBtn');
+        const testCasesOutput = document.getElementById('testCasesOutput');
+        const approveTestCasesBtn = document.getElementById('approveTestCasesBtn');
+        const junitOutputContainer = document.getElementById('junitOutputContainer'); // This is now the container for multiple code blocks
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const messageBox = document.getElementById('messageBox');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Function to show messages
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800', 'bg-blue-100', 'text-blue-800');
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                messageBox.classList.add('bg-blue-100', 'text-blue-800');
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        // Function to hide messages
+        function hideMessage() {
+            messageBox.classList.add('hidden');
+        }
+
+        // Function to set loading state
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loadingSpinner.style.display = 'block';
+                generateTestCasesBtn.disabled = true;
+                approveTestCasesBtn.disabled = true;
+                userStoryInput.disabled = true;
+                testCasesOutput.disabled = true; // Disable editing during generation
+                hideMessage();
+            } else {
+                loadingSpinner.style.display = 'none';
+                generateTestCasesBtn.disabled = false;
+                userStoryInput.disabled = false;
+                testCasesOutput.disabled = false; // Enable editing after generation
+            }
+        }
+
+        // Event listener for Generate Test Cases button
+        generateTestCasesBtn.addEventListener('click', async () => {
+            const userStory = userStoryInput.value.trim();
+            if (!userStory) {
+                showMessage('Please enter a user story.', 'error');
+                return;
+            }
+
+            setLoading(true);
+            testCasesOutput.value = 'Generating test cases...';
+            junitOutputContainer.innerHTML = ''; // Clear previous JUnit output
+            approveTestCasesBtn.disabled = true; // Disable until new test cases are ready
+
+            try {
+                // API call to your Agno AI agent for test case generation
+                const apiUrl = 'http://localhost:8000/v1/playground/agents/test_generator/runs'; // Updated Agno AI agent endpoint
+
+                const formData = new FormData();
+                formData.append('message', `User Story: ${userStory}`); // User story as the message field
+                formData.append('stream', 'false'); // As per curl command
+                formData.append('monitor', 'false'); // As per curl command
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const resultText = await response.text(); // Agent returns plain text, which is a JSON string
+
+                if (response.ok) {
+                    try {
+                        const resultJson = JSON.parse(resultText);
+                        // Extract test cases from the nested structure
+                        const testCasesArray = resultJson.content.test_cases;
+
+                        let formattedTestCases = '';
+                        if (testCasesArray && testCasesArray.length > 0) {
+                            testCasesArray.forEach((testCase, index) => {
+                                formattedTestCases += `Scenario ${index + 1}: ${testCase.scenario_name}\n`;
+                                formattedTestCases += `  Given: ${testCase.given}\n`;
+                                formattedTestCases += `  When: ${testCase.when}\n`;
+                                formattedTestCases += `  Then: ${testCase.then}\n\n`;
+                            });
+                            testCasesOutput.value = formattedTestCases.trim(); // Trim extra newlines
+                            approveTestCasesBtn.disabled = false; // Enable approve button
+                            showMessage('Test cases generated successfully! Review and approve.', 'success');
+                        } else {
+                            showMessage('No test cases found in the response.', 'info');
+                            testCasesOutput.value = 'No test cases generated or found.';
+                        }
+
+                    } catch (parseError) {
+                        console.error('Error parsing JSON response:', parseError);
+                        showMessage('Failed to parse agent response as JSON. Displaying raw text.', 'error');
+                        testCasesOutput.value = resultText; // Fallback to raw text if parsing fails
+                    }
+                } else {
+                    let errorDetail = resultText;
+                    try {
+                        const errorJson = JSON.parse(resultText);
+                        errorDetail = errorJson.detail || resultText;
+                    } catch (e) {
+                        // If parsing fails, it's truly plain text or malformed JSON
+                    }
+                    console.error('API response error:', errorDetail);
+                    showMessage(`Failed to generate test cases: ${errorDetail}. Please check console for details.`, 'error');
+                    testCasesOutput.value = 'Error generating test cases.';
+                }
+
+            } catch (error) {
+                console.error('Error generating test cases:', error);
+                showMessage('An error occurred while generating test cases. Please check console.', 'error');
+                testCasesOutput.value = 'Error generating test cases.';
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Event listener for Approve & Generate JUnits button
+        approveTestCasesBtn.addEventListener('click', async () => {
+            const approvedTestCases = testCasesOutput.value.trim();
+            if (!approvedTestCases) {
+                showMessage('No test cases to approve. Please generate them first.', 'error');
+                return;
+            }
+
+            setLoading(true);
+            junitOutputContainer.innerHTML = 'Generating JUnit tests...'; // Clear and update container
+            generateTestCasesBtn.disabled = true; // Disable generate test cases button during JUnit generation
+            approveTestCasesBtn.disabled = true; // Disable itself
+
+            try {
+                // API call to your Agno AI agent for JUnit generation
+                const apiUrl = 'http://localhost:8000/v1/playground/agents/junit_generator/runs'; // Updated JUnit agent endpoint
+
+                const formData = new FormData();
+                formData.append('message', approvedTestCases); // Approved test cases as the message field
+                formData.append('stream', 'false'); // As per curl command
+                formData.append('monitor', 'false'); // As per curl command
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    body: formData // Use FormData for multipart/form-data
+                });
+
+                const resultText = await response.text(); // Agent returns plain text, which is a JSON string
+
+                if (response.ok) {
+                    try {
+                        const resultJson = JSON.parse(resultText);
+                        const updates = resultJson.content.updates;
+
+                        junitOutputContainer.innerHTML = ''; // Clear "Generating JUnit tests..." message
+
+                        if (updates && updates.length > 0) {
+                            updates.forEach(file => {
+                                const fileBlock = document.createElement('div');
+                                fileBlock.className = 'code-file-block'; // Apply new class for styling
+
+                                const fileNameElem = document.createElement('p');
+                                fileNameElem.className = 'file-name';
+                                fileNameElem.textContent = `File: ${file.file_path}`;
+                                fileBlock.appendChild(fileNameElem);
+
+                                const preElem = document.createElement('pre');
+                                const codeElem = document.createElement('code');
+                                codeElem.className = 'language-java'; // Set language for highlighting
+                                codeElem.textContent = file.content;
+                                preElem.appendChild(codeElem);
+                                fileBlock.appendChild(preElem);
+
+                                junitOutputContainer.appendChild(fileBlock);
+
+                                hljs.highlightElement(codeElem); // Highlight each code block
+                            });
+                            showMessage('JUnit tests generated successfully!', 'success');
+                        } else {
+                            showMessage('No JUnit test files found in the response.', 'info');
+                            junitOutputContainer.textContent = 'No JUnit tests generated or found.';
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing JSON response from JUnit agent:', parseError);
+                        showMessage('Failed to parse JUnit agent response as JSON. Displaying raw text.', 'error');
+                        junitOutputContainer.textContent = resultText; // Fallback to raw text if parsing fails
+                    }
+                } else {
+                    let errorDetail = resultText;
+                    try {
+                        const errorJson = JSON.parse(resultText);
+                        errorDetail = errorJson.detail || resultText;
+                    } catch (e) {
+                        // If parsing fails, it's truly plain text or malformed JSON
+                    }
+                    console.error('API response error for JUnit generation:', errorDetail);
+                    showMessage(`Failed to generate JUnit tests: ${errorDetail}. Please check console for details.`, 'error');
+                    junitOutputContainer.textContent = 'Error generating JUnit tests.';
+                }
+
+            } catch (error) {
+                console.error('Error generating JUnit tests:', error);
+                showMessage('An error occurred while generating JUnit tests. Please check console.', 'error');
+                junitOutputContainer.textContent = 'Error generating JUnit tests.';
+            } finally {
+                setLoading(false);
+                generateTestCasesBtn.disabled = false; // Re-enable generate test cases button
+            }
+        });
+
+        // Event listener for Reset Workflow button
+        resetBtn.addEventListener('click', () => {
+            userStoryInput.value = '';
+            testCasesOutput.value = '';
+            junitOutputContainer.innerHTML = ''; // Clear code blocks
+            approveTestCasesBtn.disabled = true;
+            generateTestCasesBtn.disabled = false;
+            testCasesOutput.disabled = false;
+            hideMessage();
+            setLoading(false); // Ensure spinner is hidden
+        });
+
+        // Initialize button states
+        approveTestCasesBtn.disabled = true;
+    </script>
+</body>
+</html>
